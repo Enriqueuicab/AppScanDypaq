@@ -86,11 +86,10 @@ fun RecolectaCipScreen(
                 viewModel.obtenerCipRecolecta(
                     FolioEmbarqueR = folioEmbarque.trim(),
                     FolioRecolecta = folioRecolecta.trim(),
-                    plaza = plaza.trim(),
                     latitud = ubicacion.latitude.toString(),
                     longitud = ubicacion.longitude.toString(),
                     usuariocaptura = usuario.trim(),
-                    cips = cip,
+                    cip = cip,
                     context = context
                 )
             },

@@ -21,11 +21,10 @@ class RecolectaCipViewModel(): ViewModel(){
     fun obtenerCipRecolecta(
         FolioEmbarqueR: String,
         FolioRecolecta: String,
-        plaza: String,
         latitud: String,
         longitud: String,
         usuariocaptura: String,
-        cips: String,
+        cip: String,
         context: Context
     ){
         viewModelScope.launch {
@@ -36,12 +35,19 @@ class RecolectaCipViewModel(): ViewModel(){
                 val request = RecolectaCipRequest(
                     FolioEmbarqueR,
                     FolioRecolecta,
-                    plaza,
                     latitud,
                     longitud,
                     usuariocaptura,
-                    cips
+                    cip
                 )
+
+                Log.d("CIP_REQUEST", "FolioEmbarqueR = '${request.FolioEmbarqueR}'")
+                Log.d("CIP_REQUEST", "FolioRecolecta = '${request.FolioRecolecta}'")
+                Log.d("CIP_REQUEST", "Latitud = '${request.latitud}'")
+                Log.d("CIP_REQUEST", "Longitud = '${request.longitud}'")
+                Log.d("CIP_REQUEST", "Usuario = '${request.usuariocaptura}'")
+                Log.d("CIP_REQUEST", "CIP = '${request.cip}'")
+
                 val response = api.obtenerCipRecolecta(request)
                 val mensaje = response.result.firstOrNull()?.resultado?.firstOrNull()?.Mensaje
 

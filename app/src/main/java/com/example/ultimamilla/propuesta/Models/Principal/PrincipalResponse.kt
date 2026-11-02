@@ -58,7 +58,7 @@ data class Recolecta(
     val FolioRuta: String,
     val FolioRecolecta: String,
     val Estatus: String,
-    val Realizado: String,
+    val Realizado: String? = null,
     val Cliente: String,
     val RazonSocial: String,
     val Direccion: String,
