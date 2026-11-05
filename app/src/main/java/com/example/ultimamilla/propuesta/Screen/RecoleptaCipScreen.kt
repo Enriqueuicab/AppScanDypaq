@@ -11,9 +11,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +27,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ultimamilla.propuesta.Location.LocationManager
 import com.example.ultimamilla.propuesta.viewModel.RecolectaCipViewModel.RecolectaCipViewModel
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.runtime.livedata.observeAsState
+import com.example.ultimamilla.propuesta.Models.Consulta.FaltanteResumen
+import com.example.ultimamilla.propuesta.viewModel.ConsultaRecolecta.ConsultaRecoViewModel
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 
@@ -36,9 +41,11 @@ fun RecolectaCipScreen(
     plazaInicial: String,
     usuarioInicial: String,
     viewModel: RecolectaCipViewModel = viewModel(),
+    consultaViewModel: ConsultaRecoViewModel = viewModel(),
     onRegresar: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val consulta by consultaViewModel.consultaReco.observeAsState()
 
     val folioEmbarque = folioEmbarqueInicial
     val folioRecolecta = folioRecolectaInicial
@@ -55,6 +62,13 @@ fun RecolectaCipScreen(
 
     val locationManager = remember {
         LocationManager(context.applicationContext)
+    }
+
+    LaunchedEffect(folioRecolecta) {
+        consultaViewModel.obtenerConsulta(
+            folioRecolecta = folioRecolecta,
+            context = context
+        )
     }
 
     fun enviarCipConUbicacion(cip: String) {
@@ -325,6 +339,202 @@ fun RecolectaCipScreen(
                     text = "La ubicación se obtendrá al enviar.",
                     style = MaterialTheme.typography.bodyMedium
                 )
+            }
+
+            if (consulta != null && consulta!!.returnCode == 200) {
+
+                ListadoCips(
+                    cipsRegistrados = consulta!!.result.listaSimpleCips,
+                    cipsFaltantes = consulta!!.result.faltantesResumen,
+                    conteoRecolectados = consulta!!.result.conteoRecolectados
+                )
+
+            } else if (consulta == null) {
+
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+
+            } else {
+
+                Text(
+                    text = "No se pudo obtener la información de la recolecta.",
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+
+        }
+    }
+}
+
+@Composable
+fun ListadoCips(
+    cipsRegistrados: List<String>,
+    cipsFaltantes: List<FaltanteResumen>,
+    conteoRecolectados: Int
+) {
+    var mostrarRegistrados by remember { mutableStateOf(true) }
+
+    val totalFaltantes = cipsFaltantes.size
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(3.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+
+            Text(
+                text = "Resumen de CIPs",
+                style = MaterialTheme.typography.titleLarge
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text("Registrados")
+                        Text(
+                            text = cipsRegistrados.size.toString(),
+                            style = MaterialTheme.typography.headlineMedium
+                        )
+                    }
+                }
+
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text("Faltantes")
+                        Text(
+                            text = totalFaltantes.toString(),
+                            style = MaterialTheme.typography.headlineMedium
+                        )
+                    }
+                }
+            }
+
+            HorizontalDivider()
+
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                SegmentedButton(
+                    selected = mostrarRegistrados,
+                    onClick = { mostrarRegistrados = true },
+                    shape = SegmentedButtonDefaults.itemShape(
+                        index = 0,
+                        count = 2
+                    )
+                ) {
+                    Text("Registrados (${cipsRegistrados.size})")
+                }
+
+                SegmentedButton(
+                    selected = !mostrarRegistrados,
+                    onClick = { mostrarRegistrados = false },
+                    shape = SegmentedButtonDefaults.itemShape(
+                        index = 1,
+                        count = 2
+                    )
+                ) {
+                    Text("Faltantes ($totalFaltantes)")
+                }
+            }
+
+            if (mostrarRegistrados) {
+
+                if (cipsRegistrados.isEmpty()) {
+                    Text(
+                        text = "Todavía no hay CIPs registrados.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    cipsRegistrados.forEach { cip ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+
+                            Spacer(Modifier.width(10.dp))
+
+                            Text(
+                                text = cip,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+                    }
+                }
+
+            } else {
+
+                if (cipsFaltantes.isEmpty()) {
+                    Text(
+                        text = "¡No hay CIPs pendientes!",
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                } else {
+                    cipsFaltantes.forEach { faltante ->
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+
+                                Spacer(Modifier.width(10.dp))
+
+                                Text(
+                                    text = faltante.CIP,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+
+                            Text(
+                                text = "Guía: ${faltante.Guia}  |  Pieza: ${faltante.Pieza}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+                    }
+                }
             }
         }
     }

@@ -1,5 +1,7 @@
 package com.example.ultimamilla.propuesta.viewModel
 
+import com.example.ultimamilla.propuesta.Models.Consulta.ConsultaRequest
+import com.example.ultimamilla.propuesta.Models.Consulta.ConsultaResponse
 import com.example.ultimamilla.propuesta.Models.Login.LoginRequest
 import com.example.ultimamilla.propuesta.Models.Login.LoginResponse
 import com.example.ultimamilla.propuesta.Models.Perfil.viajeRequest
@@ -32,5 +34,10 @@ interface ApiService {
     suspend fun obtenerCipRecolecta(
         @Body request: RecolectaCipRequest
     ): RecolectaCipResponse
+
+    @POST("api/v2/rastreomovil_consulta_recolecta")
+    suspend fun obtenerConsulta(
+        @Body request: ConsultaRequest
+    ): ConsultaResponse
 
 }
