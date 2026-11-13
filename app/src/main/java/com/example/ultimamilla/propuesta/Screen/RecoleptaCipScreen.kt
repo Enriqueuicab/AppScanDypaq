@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -367,13 +368,14 @@ fun RecolectaCipScreen(
     }
 }
 
+
 @Composable
 fun ListadoCips(
     cipsRegistrados: List<String>,
     cipsFaltantes: List<FaltanteResumen>,
     conteoRecolectados: Int
 ) {
-    var mostrarRegistrados by remember { mutableStateOf(true) }
+    var mostrarRegistrados by remember { mutableStateOf<Boolean?>(null) }
 
     val totalFaltantes = cipsFaltantes.size
 
@@ -386,7 +388,6 @@ fun ListadoCips(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-
             Text(
                 text = "Resumen de CIPs",
                 style = MaterialTheme.typography.titleLarge
@@ -396,14 +397,21 @@ fun ListadoCips(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                // Contador de registrados
                 Card(
+                    onClick = { mostrarRegistrados = true },
                     modifier = Modifier.weight(1f),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer
                     )
                 ) {
-                    Column(Modifier.padding(12.dp)) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp)
+                    ) {
                         Text("Registrados")
+
                         Text(
                             text = cipsRegistrados.size.toString(),
                             style = MaterialTheme.typography.headlineMedium
@@ -411,14 +419,21 @@ fun ListadoCips(
                     }
                 }
 
+                // Contador de faltantes
                 Card(
+                    onClick = { mostrarRegistrados = false },
                     modifier = Modifier.weight(1f),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer
                     )
                 ) {
-                    Column(Modifier.padding(12.dp)) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp)
+                    ) {
                         Text("Faltantes")
+
                         Text(
                             text = totalFaltantes.toString(),
                             style = MaterialTheme.typography.headlineMedium
@@ -426,119 +441,109 @@ fun ListadoCips(
                     }
                 }
             }
+        }
+    }
 
-            HorizontalDivider()
+    // Modal de información
+    if (mostrarRegistrados != null) {
 
-            SingleChoiceSegmentedButtonRow(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                SegmentedButton(
-                    selected = mostrarRegistrados,
-                    onClick = { mostrarRegistrados = true },
-                    shape = SegmentedButtonDefaults.itemShape(
-                        index = 0,
-                        count = 2
-                    )
-                ) {
-                    Text("Registrados (${cipsRegistrados.size})")
-                }
+        val esRegistrado = mostrarRegistrados == true
 
-                SegmentedButton(
-                    selected = !mostrarRegistrados,
-                    onClick = { mostrarRegistrados = false },
-                    shape = SegmentedButtonDefaults.itemShape(
-                        index = 1,
-                        count = 2
-                    )
-                ) {
-                    Text("Faltantes ($totalFaltantes)")
-                }
-            }
+        val lista = if (esRegistrado) {
+            cipsRegistrados
+        } else {
+            cipsFaltantes
+        }
 
-            if (mostrarRegistrados) {
-
-                if (cipsRegistrados.isEmpty()) {
+        AlertDialog(
+            onDismissRequest = {
+                mostrarRegistrados = null
+            },
+            title = {
+                Text(
+                    text = if (esRegistrado) {
+                        "CIPs registrados"
+                    } else {
+                        "CIPs faltantes"
+                    }
+                )
+            },
+            text = {
+                if (lista.isEmpty()) {
                     Text(
-                        text = "Todavía no hay CIPs registrados.",
+                        text = if (esRegistrado) {
+                            "Todavía no hay CIPs registrados."
+                        } else {
+                            "¡No hay CIPs pendientes!"
+                        },
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 } else {
-                    cipsRegistrados.forEach { cip ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 400.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(lista.size) { index ->
 
-                            Spacer(Modifier.width(10.dp))
+                            if (esRegistrado) {
+                                val cip = cipsRegistrados[index]
 
-                            Text(
-                                text = cip,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
 
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant
-                        )
-                    }
-                }
+                                    Spacer(Modifier.width(10.dp))
 
-            } else {
+                                    Text(text = cip)
+                                }
 
-                if (cipsFaltantes.isEmpty()) {
-                    Text(
-                        text = "¡No hay CIPs pendientes!",
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                } else {
-                    cipsFaltantes.forEach { faltante ->
+                            } else {
+                                val faltante = cipsFaltantes[index]
 
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 6.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Warning,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.error
-                                )
+                                Column {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Warning,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
 
-                                Spacer(Modifier.width(10.dp))
+                                        Spacer(Modifier.width(10.dp))
 
-                                Text(
-                                    text = faltante.CIP,
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
+                                        Text(text = faltante.CIP)
+                                    }
+
+                                    Text(
+                                        text = "Guía: ${faltante.Guia} | Pieza: ${faltante.Pieza}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier.padding(start = 34.dp, top = 4.dp)
+                                    )
+                                }
                             }
 
-                            Text(
-                                text = "Guía: ${faltante.Guia}  |  Pieza: ${faltante.Pieza}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            HorizontalDivider()
                         }
-
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant
-                        )
                     }
                 }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { mostrarRegistrados = null }
+                ) {
+                    Text("Cerrar")
+                }
             }
-        }
+        )
     }
 }
+
 
 @Composable
 fun DatoOperacion(

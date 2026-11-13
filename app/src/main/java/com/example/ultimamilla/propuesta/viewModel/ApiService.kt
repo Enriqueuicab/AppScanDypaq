@@ -10,6 +10,8 @@ import com.example.ultimamilla.propuesta.Models.Principal.PrincipalRequest
 import com.example.ultimamilla.propuesta.Models.Principal.PrincipalResponse
 import com.example.ultimamilla.propuesta.Models.RecolectaCip.RecolectaCipRequest
 import com.example.ultimamilla.propuesta.Models.RecolectaCip.RecolectaCipResponse
+import com.example.ultimamilla.propuesta.Models.documentar.DocumentoRequest
+import com.example.ultimamilla.propuesta.Models.documentar.DocumentoResponse
 import retrofit2.http.Body
 import retrofit2.http.POST
 
@@ -39,5 +41,10 @@ interface ApiService {
     suspend fun obtenerConsulta(
         @Body request: ConsultaRequest
     ): ConsultaResponse
+
+    @POST("api/v2/rastreomovil_documentar")
+    suspend fun obtenerDocumento(
+        @Body request: DocumentoRequest
+    ): DocumentoResponse
 
 }
