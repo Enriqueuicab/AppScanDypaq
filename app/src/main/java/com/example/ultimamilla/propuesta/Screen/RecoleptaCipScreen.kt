@@ -29,10 +29,16 @@ import com.example.ultimamilla.propuesta.Location.LocationManager
 import com.example.ultimamilla.propuesta.viewModel.RecolectaCipViewModel.RecolectaCipViewModel
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.lifecycle.Observer
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.ultimamilla.propuesta.Models.Consulta.FaltanteResumen
+import com.example.ultimamilla.propuesta.Models.RecolectaCip.RecolectaCipResponse
+import com.example.ultimamilla.propuesta.Models.RecolectaEliminarCip.RecolectaEliminarCipResponse
 import com.example.ultimamilla.propuesta.viewModel.ConsultaRecolecta.ConsultaRecoViewModel
+import com.example.ultimamilla.propuesta.viewModel.RecolectaCipViewModel.RecolectaEliminaCipViewModel
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,6 +49,7 @@ fun RecolectaCipScreen(
     usuarioInicial: String,
     viewModel: RecolectaCipViewModel = viewModel(),
     consultaViewModel: ConsultaRecoViewModel = viewModel(),
+    eliminacionViewModel: RecolectaEliminaCipViewModel = viewModel(),
     onRegresar: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -61,6 +68,16 @@ fun RecolectaCipScreen(
         mutableStateOf(false)
     }
 
+    // Nueva variable: controla el modal de operaciones.
+    var mostrarOpcionesCip by remember {
+        mutableStateOf(false)
+    }
+
+    // Nueva variable: identifica si se agrega o elimina.
+    var operacionCip by remember {
+        mutableStateOf("AGREGAR")
+    }
+
     val locationManager = remember {
         LocationManager(context.applicationContext)
     }
@@ -70,6 +87,43 @@ fun RecolectaCipScreen(
             folioRecolecta = folioRecolecta,
             context = context
         )
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+
+        val observerAgregar = Observer<RecolectaCipResponse?> { response ->
+            if (response != null) {
+                procesandoCip = false
+
+                if (response.return_message == "OK") {
+                    consultaViewModel.obtenerConsulta(
+                        folioRecolecta = folioRecolecta.trim(),
+                        context = context
+                    )
+                }
+            }
+        }
+
+        val observerEliminar = Observer<RecolectaEliminarCipResponse?> { response ->
+            if (response?.return_message == "OK") {
+                procesandoCip = false
+
+                consultaViewModel.obtenerConsulta(
+                    folioRecolecta = folioRecolecta.trim(),
+                    context = context
+                )
+            }
+        }
+
+        viewModel.recolectaCip.observe(lifecycleOwner, observerAgregar)
+        eliminacionViewModel.recolectaEliminarCip.observe(lifecycleOwner, observerEliminar)
+
+        onDispose {
+            viewModel.recolectaCip.removeObserver(observerAgregar)
+            eliminacionViewModel.recolectaEliminarCip.removeObserver(observerEliminar)
+        }
     }
 
     fun enviarCipConUbicacion(cip: String) {
@@ -83,17 +137,17 @@ fun RecolectaCipScreen(
                 Log.e(
                     "CIP_DEBUG_2",
                     """
-                Ubicación obtenida:
-                Latitud: ${ubicacion.latitude}
-                Longitud: ${ubicacion.longitude}
+                    Ubicación obtenida:
+                    Latitud: ${ubicacion.latitude}
+                    Longitud: ${ubicacion.longitude}
 
-                Datos que se enviarán:
-                FolioEmbarqueR: '${folioEmbarque.trim()}'
-                FolioRecolecta: '${folioRecolecta.trim()}'
-                Plaza: '${plaza.trim()}'
-                Usuario: '${usuario.trim()}'
-                CIP: '$cip'
-                """.trimIndent()
+                    Datos que se enviarán:
+                    FolioEmbarqueR: '${folioEmbarque.trim()}'
+                    FolioRecolecta: '${folioRecolecta.trim()}'
+                    Plaza: '${plaza.trim()}'
+                    Usuario: '${usuario.trim()}'
+                    CIP: '$cip'
+                    """.trimIndent()
                 )
 
                 Log.e("CIP_DEBUG_2", "Invocando al ViewModel ahora")
@@ -169,33 +223,118 @@ fun RecolectaCipScreen(
                 "Escaneo cancelado",
                 Toast.LENGTH_SHORT
             ).show()
+
             return@rememberLauncherForActivityResult
 
         } else {
-            val tienePermiso =
-                ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.ACCESS_FINE_LOCATION
-                ) == PackageManager.PERMISSION_GRANTED ||
-                        ContextCompat.checkSelfPermission(
-                            context,
+
+            // Diferenciar la operación seleccionada.
+            if (operacionCip == "AGREGAR") {
+
+                val tienePermiso =
+                    ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                    ) == PackageManager.PERMISSION_GRANTED ||
+                            ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            ) == PackageManager.PERMISSION_GRANTED
+
+                if (tienePermiso) {
+                    enviarCipConUbicacion(cip)
+                } else {
+                    cipPendiente = cip
+
+                    permisoUbicacion.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
                             Manifest.permission.ACCESS_COARSE_LOCATION
-                        ) == PackageManager.PERMISSION_GRANTED
-
-            if (tienePermiso) {
-                enviarCipConUbicacion(cip)
-            } else {
-                cipPendiente = cip
-
-                permisoUbicacion.launch(
-                    arrayOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
+                        )
                     )
+                }
+
+            } else if (operacionCip == "ELIMINAR") {
+
+                procesandoCip = true
+
+                eliminacionViewModel.obtenerRecolectaEliminarCip(
+                    FolioRecolecta = folioRecolecta.trim(),
+                    usuariocancela = usuario.trim(),
+                    cip = cip,
+                    context = context
                 )
             }
         }
+
         Log.e("CIP_DEBUG_1", "CIP recibido: $cip")
+    }
+
+    // Modal para seleccionar la operación.
+    if (mostrarOpcionesCip) {
+
+        AlertDialog(
+            onDismissRequest = {
+                mostrarOpcionesCip = false
+            },
+            title = {
+                Text("Operación de CIP")
+            },
+            text = {
+                Text("Selecciona qué deseas hacer con el CIP.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        operacionCip = "AGREGAR"
+                        mostrarOpcionesCip = false
+
+                        val opciones = ScanOptions().apply {
+                            setPrompt("Escanea el CIP para agregar")
+                            setBeepEnabled(true)
+                            setOrientationLocked(false)
+                            setDesiredBarcodeFormats(ScanOptions.CODE_39)
+                        }
+
+                        barcodeLauncher.launch(opciones)
+                    }
+                ) {
+                    Text("Agregar")
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(
+                        onClick = {
+                            operacionCip = "ELIMINAR"
+                            mostrarOpcionesCip = false
+
+                            val opciones = ScanOptions().apply {
+                                setPrompt("Escanea el CIP para eliminar")
+                                setBeepEnabled(true)
+                                setOrientationLocked(false)
+                                setDesiredBarcodeFormats(ScanOptions.CODE_39)
+                            }
+
+                            barcodeLauncher.launch(opciones)
+                        }
+                    ) {
+                        Text(
+                            "Eliminar",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+
+                    TextButton(
+                        onClick = {
+                            mostrarOpcionesCip = false
+                        }
+                    ) {
+                        Text("Cancelar")
+                    }
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -210,6 +349,7 @@ fun RecolectaCipScreen(
             )
         }
     ) { padding ->
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -218,6 +358,7 @@ fun RecolectaCipScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+
             // Encabezado
             Text(
                 text = "Información de la recolecta",
@@ -231,7 +372,7 @@ fun RecolectaCipScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            // Tarjeta con los datos recibidos desde la pantalla principal
+            // Tarjeta con los datos de operación
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -248,6 +389,7 @@ fun RecolectaCipScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+
                     Text(
                         text = "Datos de operación",
                         style = MaterialTheme.typography.titleMedium
@@ -275,7 +417,7 @@ fun RecolectaCipScreen(
                 }
             }
 
-            // Sección independiente para los CIPs
+            // Sección de CIPs
             Text(
                 text = "Registro de CIPs",
                 style = MaterialTheme.typography.titleLarge,
@@ -284,29 +426,15 @@ fun RecolectaCipScreen(
 
             Button(
                 onClick = {
-                    // PASO 1: El usuario presionó el botón para abrir el escáner.
-                    Log.d("RECOLECTA_CIP", "Botón presionado. Abriendo escáner...")
-
-                    // Configuración del lector de códigos de barras.
-                    val opciones = ScanOptions().apply {
-                        setPrompt("Escanea el código CIP")
-                        setBeepEnabled(true)
-                        setOrientationLocked(false)
-
-                        // Solo acepta códigos de barras del formato CODE_39.
-                        setDesiredBarcodeFormats(ScanOptions.CODE_39)
-                    }
-
-                    // PASO 2: Lanzar la actividad del escáner.
-                    barcodeLauncher.launch(opciones)
-
-                    Log.d("RECOLECTA_CIP", "Solicitud para abrir el escáner enviada")
+                    mostrarOpcionesCip = true
                 },
                 enabled = !procesandoCip,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             ) {
+
                 if (procesandoCip) {
+
                     CircularProgressIndicator(
                         modifier = Modifier.size(20.dp),
                         strokeWidth = 2.dp,
@@ -315,14 +443,16 @@ fun RecolectaCipScreen(
 
                     Spacer(Modifier.width(8.dp))
                     Text("Procesando CIP...")
+
                 } else {
+
                     Icon(
                         imageVector = Icons.Default.QrCodeScanner,
                         contentDescription = "Escanear CIP"
                     )
 
                     Spacer(Modifier.width(8.dp))
-                    Text("Escanear y enviar CIP")
+                    Text("Escanear CIP")
                 }
             }
 
@@ -330,6 +460,7 @@ fun RecolectaCipScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+
                 Icon(
                     imageVector = Icons.Default.LocationOn,
                     contentDescription = null,
@@ -337,7 +468,7 @@ fun RecolectaCipScreen(
                 )
 
                 Text(
-                    text = "La ubicación se obtendrá al enviar.",
+                    text = "La ubicación se obtendrá al agregar un CIP.",
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
@@ -363,7 +494,6 @@ fun RecolectaCipScreen(
                     color = MaterialTheme.colorScheme.error
                 )
             }
-
         }
     }
 }
@@ -458,7 +588,8 @@ fun ListadoCips(
         AlertDialog(
             onDismissRequest = {
                 mostrarRegistrados = null
-            },
+            }
+            ,
             title = {
                 Text(
                     text = if (esRegistrado) {

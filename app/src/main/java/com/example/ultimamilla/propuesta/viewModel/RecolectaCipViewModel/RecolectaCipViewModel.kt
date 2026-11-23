@@ -49,7 +49,7 @@ class RecolectaCipViewModel(): ViewModel(){
                 Log.d("CIP_REQUEST", "CIP = '${request.cip}'")
 
                 val response = api.obtenerCipRecolecta(request)
-                val mensaje = response.result.firstOrNull()?.resultado?.firstOrNull()?.Mensaje
+                val mensaje = response.result.firstOrNull()?.firstOrNull()?.Mensaje
 
                 if(response.return_message == "OK"){
                     Log.d("RecolectaCipViewModel", "Respuesta: ${response.result}")
