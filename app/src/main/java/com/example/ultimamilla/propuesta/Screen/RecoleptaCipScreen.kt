@@ -517,11 +517,19 @@ fun RecolectaCipScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
             ) {
-                Icon(Icons.Default.Description, contentDescription = null)
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null
+                )
+
                 Spacer(Modifier.width(8.dp))
-                Text("Documentar")
+
+                Text("Terminar recolecta")
             }
         }
     }
@@ -544,16 +552,86 @@ fun RecolectaCipScreen(
 
     if (mostrarErrorFaltantes) {
         AlertDialog(
-            onDismissRequest = { mostrarErrorFaltantes = false },
+            onDismissRequest = {
+                mostrarErrorFaltantes = false
+            },
+
             title = {
-                Text("No se puede documentar")
+                Text(
+                    text = "No se puede documentar",
+                    style = MaterialTheme.typography.titleLarge
+                )
             },
+
             text = {
-                Text("Complete los faltantes o elimínelos para documentar")
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+
+                    Text(
+                        text = "CIPs pendientes por registrar",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 300.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(consulta!!.result.faltantesResumen.size) { index ->
+
+                            val faltante = consulta!!.result.faltantesResumen[index]
+
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+
+                                    Spacer(Modifier.width(8.dp))
+
+                                    Text(
+                                        text = faltante.CIP.trim(),
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                Text(
+                                    text = "Guía: ${faltante.Guia.trim()}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(start = 32.dp)
+                                )
+
+                                Text(
+                                    text = "Pieza: ${faltante.Pieza}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(start = 32.dp)
+                                )
+                            }
+
+                            HorizontalDivider()
+                        }
+                    }
+
+                    Text(
+                        text = "Complete los faltantes o elimínelos para documentar",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             },
+
             confirmButton = {
                 TextButton(
-                    onClick = { mostrarErrorFaltantes = false }
+                    onClick = {
+                        mostrarErrorFaltantes = false
+                    }
                 ) {
                     Text("Aceptar")
                 }
