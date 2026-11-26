@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Send
@@ -29,6 +30,7 @@ import com.example.ultimamilla.propuesta.Location.LocationManager
 import com.example.ultimamilla.propuesta.viewModel.RecolectaCipViewModel.RecolectaCipViewModel
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.Observer
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.ultimamilla.propuesta.Models.Consulta.FaltanteResumen
@@ -81,6 +83,12 @@ fun RecolectaCipScreen(
     val locationManager = remember {
         LocationManager(context.applicationContext)
     }
+
+    var mostrarCierre by remember {
+        mutableStateOf(false)
+    }
+
+    var mostrarErrorFaltantes by remember { mutableStateOf(false) }
 
     LaunchedEffect(folioRecolecta) {
         consultaViewModel.obtenerConsulta(
@@ -494,8 +502,214 @@ fun RecolectaCipScreen(
                     color = MaterialTheme.colorScheme.error
                 )
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Button(
+                onClick = {
+                    if (consulta?.result?.faltantesResumen?.isNotEmpty() == true) {
+                        mostrarErrorFaltantes = true
+                    } else {
+                        mostrarCierre = true
+                    }
+                },
+                enabled = !procesandoCip && consulta?.returnCode == 200,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.Description, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Documentar")
+            }
         }
     }
+    if (mostrarCierre && consulta?.returnCode == 200) {
+
+        ModalCierreRecolecta(
+            cipsRegistrados = consulta!!.result.listaSimpleCips,
+            cipsFaltantes = consulta!!.result.faltantesResumen,
+
+            onCancelar = {
+                mostrarCierre = false
+            },
+
+            onFinalizar = {
+                mostrarCierre = false
+                onRegresar()
+            }
+        )
+    }
+
+    if (mostrarErrorFaltantes) {
+        AlertDialog(
+            onDismissRequest = { mostrarErrorFaltantes = false },
+            title = {
+                Text("No se puede documentar")
+            },
+            text = {
+                Text("Complete los faltantes o elimínelos para documentar")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { mostrarErrorFaltantes = false }
+                ) {
+                    Text("Aceptar")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun ModalCierreRecolecta(
+    cipsRegistrados: List<String>,
+    cipsFaltantes: List<FaltanteResumen>,
+    onCancelar: () -> Unit,
+    onFinalizar: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onCancelar,
+
+        title = {
+            Text(
+                text = "Cierre de recolecta",
+                style = MaterialTheme.typography.titleLarge
+            )
+        },
+
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+
+                Text(
+                    text = "Verifica la información antes de finalizar la recolecta."
+                )
+
+                HorizontalDivider()
+
+                // Resumen de cantidades
+                Text(
+                    text = "Resumen de CIPs",
+                    style = MaterialTheme.typography.titleMedium
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text(
+                            text = "Registrados",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+
+                        Text(
+                            text = cipsRegistrados.size.toString(),
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    Column {
+                        Text(
+                            text = "Faltantes",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+
+                        Text(
+                            text = cipsFaltantes.size.toString(),
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+
+                HorizontalDivider()
+
+                // Detalle de faltantes
+                Text(
+                    text = "CIPs pendientes por registrar",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
+
+                if (cipsFaltantes.isEmpty()) {
+
+                    Text(
+                        text = "¡No hay CIPs pendientes por registrar!",
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                } else {
+
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 300.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(cipsFaltantes.size) { index ->
+
+                            val faltante = cipsFaltantes[index]
+
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+
+                                    Spacer(Modifier.width(8.dp))
+
+                                    Text(
+                                        text = faltante.CIP,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                Text(
+                                    text = "Guía: ${faltante.Guia}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(start = 32.dp)
+                                )
+
+                                Text(
+                                    text = "Pieza: ${faltante.Pieza}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(start = 32.dp)
+                                )
+                            }
+
+                            HorizontalDivider()
+                        }
+                    }
+                }
+            }
+        },
+
+        confirmButton = {
+            Button(
+                onClick = onFinalizar
+            ) {
+                Text("Finalizar")
+            }
+        },
+
+        dismissButton = {
+            TextButton(
+                onClick = onCancelar
+            ) {
+                Text("Cancelar")
+            }
+        }
+    )
 }
 
 
